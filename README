@@ -1,0 +1,191 @@
+# Groop Groop Roster Generator (offline Excel version)
+
+Generates the weekly cell serving roster (Prayer, Word, Worship Vocals,
+Worship Instru) from an Excel copy of the Google Form responses plus the
+committee's session schedule. No Google account or internet needed to run it.
+
+-------------------------------------------------------------------------------
+
+## 1. What's in this folder
+
+    groop-groop-roster/
+    ├── README               <- this file
+    ├── roster_local.py      <- the script you run (offline Excel version)
+    ├── roster.py            <- rostering rules + settings (REQUIRED - roster_local.py uses it)
+    ├── requirements.txt     <- Python libraries to install
+    ├── input/
+    │   └── responses.xlsx   <- YOU put the downloaded Excel file here
+    └── output/
+        └── roster_output.xlsx  <- the script creates this
+
+Always copy the WHOLE folder. roster_local.py will not run without roster.py
+next to it.
+
+-------------------------------------------------------------------------------
+
+## 2. One-time setup on a new computer
+
+### a) Install Python (version 3.10 or newer)
+
+Windows:
+  1. Download from https://www.python.org/downloads/
+  2. Run the installer and TICK "Add python.exe to PATH" on the first screen.
+  3. Open a new Command Prompt / PowerShell and check it works:
+
+        python --version
+
+Mac:
+  1. Download from https://www.python.org/downloads/ and install.
+  2. Use `python3` and `pip3` wherever this README says `python` and `pip`.
+
+### b) Install the required library
+
+Open a terminal IN THIS FOLDER (Windows: open the folder in File Explorer,
+click the address bar, type `cmd`, press Enter), then run:
+
+    pip install -r requirements.txt
+
+This installs:
+  - openpyxl  - reads/writes Excel files (needed for roster_local.py)
+  - gspread   - only needed for the Google Sheets version (roster.py);
+                harmless to install. To skip it: `pip install openpyxl`
+
+You only need to do this once per computer.
+
+-------------------------------------------------------------------------------
+
+## 3. Preparing the input file
+
+### a) Download the Google Sheet as Excel
+
+Open the Google Sheet linked to the form, then:
+File -> Download -> Microsoft Excel (.xlsx)
+
+Rename the downloaded file to `responses.xlsx` and save it in the `input/`
+folder (replace the old one if it exists).
+
+### b) The file must contain two tabs
+
+1. `Form Responses 1` - created automatically by Google Forms. Don't edit
+   the header row. The script finds columns by these words in the question
+   text, so keep them in the questions:
+
+       Question                                   Must contain
+       ----------------------------------------   ---------------
+       Name                                       "name"
+       Birthday                                   "birthday"
+       Able to serve for cell sessions weekly in  "weekly"
+       Other serving opportunities in cell        "other serving"
+       Preferred serving frequency                "frequency"
+       Misc comments                              "comment"
+       Block out dates (x10)                      "block"
+
+   Serving area options must be spelled exactly:
+   Prayer, Word, Worship (Vocals), Worship (Instru)
+
+   If someone submits the form more than once, their LATEST response is used.
+
+2. `Schedule` - filled in by the committee, one row per week:
+
+       Date        | Prayer | Word | Worship (Vocals) | Worship (Instru) | Notes
+       ------------|--------|------|------------------|------------------|-------------
+       07/01/2027  | Y      | Y    | Y                | Y                |
+       14/01/2027  | Y      | Y    |                  |                  | Prayer night
+       21/01/2027  |        |      |                  |                  | CNY - no cell
+
+   - Date as dd/mm/yyyy (or a real Excel date).
+   - Mark a role as needed with Y / Yes / X / TRUE / 1 (ticked checkboxes work).
+   - A row with nothing marked = no session that week (Notes is shown on the roster).
+   - Column headers must match the role names exactly.
+
+If the schedule is kept in a SEPARATE Excel file, see "Options" below.
+
+-------------------------------------------------------------------------------
+
+## 4. Running it
+
+In a terminal in this folder:
+
+    python roster_local.py
+
+It reads   input/responses.xlsx
+and writes output/roster_output.xlsx
+
+You'll see something like:
+
+    18 members, 26 weeks
+    Wrote ...\output\roster_output.xlsx
+
+If any slot couldn't be filled it also says how many - check the Notes column.
+
+-------------------------------------------------------------------------------
+
+## 5. The output
+
+`output/roster_output.xlsx` has two tabs:
+
+- **Roster** - one row per week: Date, who's on each role, Notes.
+    - `⚠ UNFILLED` = nobody available (everyone blocked out or already serving
+      that week). The committee needs to fill this manually or drop the role.
+    - Notes also flag anyone rostered near their birthday because there was no
+      one else.
+- **Load Summary** - per person: times served in each role, total effort
+  points, and an approximate fair-share target based on their preferred
+  frequency. Use this to sanity-check fairness.
+
+Each run OVERWRITES output/roster_output.xlsx. Rename or move the old file
+first if you want to keep it. Your input file is never modified.
+
+-------------------------------------------------------------------------------
+
+## 6. Rostering rules
+
+Hard rules (never broken):
+  - Never rostered on any of their block-out dates.
+  - Only rostered for areas they ticked on the form.
+  - Never rostered for two areas in the same week.
+
+Soft rules (followed unless impossible; flagged in Notes when broken):
+  - Not rostered within 3 days either side of their birthday.
+
+Balancing:
+  - Word counts as 2 effort points; all other areas count as 1.
+  - Load is shared in proportion to preferred frequency (someone who chose
+    "1 month" serves about twice as often as someone who chose "2 months").
+  - Tries not to roster someone again before their preferred gap has passed.
+  - Same input always gives the same roster.
+
+-------------------------------------------------------------------------------
+
+## 7. Options
+
+    python roster_local.py "C:\path\to\other file.xlsx"     use a different input file
+    python roster_local.py --schedule-file input\schedule.xlsx   schedule in its own file
+    python roster_local.py --responses-tab "Sheet1"          different responses tab name
+    python roster_local.py --schedule-tab "Dates"            different schedule tab name
+    python roster_local.py --output output\roster_2027.xlsx  save under another name
+
+Options can be combined.
+
+Settings you can change at the top of roster.py (open in any text editor):
+  - EFFORT                 effort points per area (Word = 2)
+  - BIRTHDAY_BUFFER_DAYS   days either side of birthday to avoid (default 3)
+  - RANDOM_SEED            change the number to get a different (still fair) roster
+  - RESPONSES_TAB / SCHEDULE_TAB   default tab names
+
+-------------------------------------------------------------------------------
+
+## 8. Troubleshooting
+
+| Message / problem                                   | Fix |
+|-----------------------------------------------------|-----|
+| `'python' is not recognized` / `Python was not found` | Python not installed or not on PATH - reinstall and tick "Add to PATH". On Mac use `python3`. |
+| `No module named 'openpyxl'`                        | Run `pip install -r requirements.txt` again. |
+| `No module named 'roster'`                          | roster.py is missing - copy it into this folder. |
+| `Input file not found`                              | Save the Excel file as `input/responses.xlsx`, or pass its path. |
+| `has no tab named ...`                              | Rename the tab in Excel, or use `--responses-tab` / `--schedule-tab`. |
+| `Could not save ... close it in Excel`              | Close roster_output.xlsx in Excel and run again. |
+| `Schedule tab needs a Date column ...`              | Check the Schedule headers match section 3b exactly. |
+| `could not parse date '...' - ignored`              | A date isn't dd/mm/yyyy - fix that cell. |
+| Someone never gets rostered                         | Check they ticked serving areas and their name isn't blank. |
+| `TypeError: unsupported operand type(s) for |`      | Python is older than 3.10 - install a newer version. |

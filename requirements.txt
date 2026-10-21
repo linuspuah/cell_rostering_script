@@ -1,0 +1,2 @@
+gspread>=6.0      # roster.py (Google Sheets version)
+openpyxl>=3.1     # roster_local.py (offline Excel version)
